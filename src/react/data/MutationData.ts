@@ -74,8 +74,14 @@ export class MutationData<
         return response;
       })
       .catch((error: ApolloError) => {
-        this.onMutationError(error, mutationId);
-        if (!this.getOptions().onError) throw error;
+        const { onError } = this.getOptions();
+        const result = this.onMutationError(error, mutationId);
+        if (onError) {
+          onError(error);
+          return result;
+        } else {
+          throw error;
+        }
       });
   };
 
@@ -128,19 +134,13 @@ export class MutationData<
   }
 
   private onMutationError(error: ApolloError, mutationId: number) {
-    const { onError } = this.getOptions();
-
     if (this.isMostRecentMutation(mutationId)) {
-      this.updateResult({
+      return this.updateResult({
         loading: false,
         error,
         data: undefined,
         called: true
       });
-    }
-
-    if (onError) {
-      onError(error);
     }
   }
 
@@ -152,13 +152,14 @@ export class MutationData<
     return this.mostRecentMutationId === mutationId;
   }
 
-  private updateResult(result: MutationResultWithoutClient<TData>) {
+  private updateResult(result: MutationResultWithoutClient<TData>): MutationResultWithoutClient<TData> | undefined {
     if (
       this.isMounted &&
       (!this.previousResult || !equal(this.previousResult, result))
     ) {
       this.setResult(result);
       this.previousResult = result;
+      return result;
     }
   }
 }
